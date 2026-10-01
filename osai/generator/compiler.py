@@ -6,6 +6,7 @@ import stat
 import textwrap
 from pathlib import Path
 
+from osai.generator.kernel_recipe import write_kernel_recipe
 from osai.spec import OSSpec
 
 
@@ -143,8 +144,6 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
             mkdir -p /etc/osai
             printf '%s\n' '{spec.kernel.display_name}' > /etc/osai/kernel-display-name
             printf '%s\n' '{spec.kernel.local_version}' > /etc/osai/kernel-local-version
-            # Preserve /lib/modules and /lib/firmware: hardware support is inherited
-            # from Debian's maintained kernel stack instead of being stripped.
             update-initramfs -u -k all || true
             """
         ),
@@ -167,6 +166,8 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
         executable=True,
     )
 
+    write_kernel_recipe(project, spec)
+
     _write(
         project / "build.sh",
         textwrap.dedent(
@@ -177,6 +178,9 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
             cd "$ROOT"
             command -v lb >/dev/null 2>&1 || { echo 'live-build (lb) is required' >&2; exit 2; }
             ./validate.sh
+            if [ "${OSAI_BUILD_KERNEL:-0}" = "1" ]; then
+              ./kernel/build-branded-kernel.sh
+            fi
             sudo lb clean --purge || true
             sudo lb config
             sudo lb build
@@ -210,7 +214,7 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
 
     _write(
         project / ".gitignore",
-        ".build/\n.cache/\nbinary*\nchroot*\nconfig/bootstrap\nconfig/chroot\nconfig/common\nconfig/source\n*.iso\ndist/*.iso\n",
+        ".build/\n.cache/\nbinary*\nchroot*\nconfig/bootstrap\nconfig/chroot\nconfig/common\nconfig/source\n*.iso\ndist/*.iso\nkernel/work/\n",
     )
 
     _write(
