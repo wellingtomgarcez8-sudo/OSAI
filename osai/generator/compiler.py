@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import stat
 import textwrap
@@ -85,7 +84,12 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
             shutil.copy2(src, project / "references" / src.name)
 
     package_list = sorted(
-        set(BASE_PACKAGES + DESKTOP_PACKAGES[spec.software.desktop] + [spec.software.browser] + spec.software.packages)
+        set(
+            BASE_PACKAGES
+            + DESKTOP_PACKAGES[spec.software.desktop]
+            + [spec.software.browser]
+            + spec.software.packages
+        )
     )
     _write(project / "config/package-lists/osai.list.chroot", "\n".join(package_list) + "\n")
 
@@ -125,9 +129,11 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
         ),
     )
     _write(project / "config/includes.chroot/etc/osai/theme.conf", _desktop_theme(spec))
-    _write(project / "config/includes.chroot/etc/osai/spec.json", json.dumps(spec.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n")
+    _write(
+        project / "config/includes.chroot/etc/osai/spec.json",
+        json.dumps(spec.model_dump(mode="json"), indent=2, ensure_ascii=False) + "\n",
+    )
 
-    # Kernel identity branding while retaining the distro kernel/modules/firmware.
     _write(
         project / "config/hooks/live/020-osai-kernel-branding.hook.chroot",
         textwrap.dedent(
@@ -137,8 +143,8 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
             mkdir -p /etc/osai
             printf '%s\n' '{spec.kernel.display_name}' > /etc/osai/kernel-display-name
             printf '%s\n' '{spec.kernel.local_version}' > /etc/osai/kernel-local-version
-            # Do not delete /lib/modules or /lib/firmware. OSAI deliberately preserves
-            # the Debian kernel hardware stack and records a custom identity separately.
+            # Preserve /lib/modules and /lib/firmware: hardware support is inherited
+            # from Debian's maintained kernel stack instead of being stripped.
             update-initramfs -u -k all || true
             """
         ),
@@ -175,7 +181,7 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
             sudo lb config
             sudo lb build
             mkdir -p dist
-            ISO=$(find . -maxdepth 1 -type f -name '*.hybrid.iso' -o -name '*.iso' | head -n1 || true)
+            ISO=$(find . -maxdepth 1 -type f \( -name '*.hybrid.iso' -o -name '*.iso' \) -print | head -n1 || true)
             [ -n "$ISO" ] || { echo 'ISO was not produced' >&2; exit 3; }
             cp "$ISO" "dist/osai.iso"
             sha256sum "dist/osai.iso" > "dist/osai.iso.sha256"
@@ -192,8 +198,8 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
             #!/bin/sh
             set -eu
             ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-            find "$ROOT" -type f \( -name '*.sh' -o -name '*.hook.chroot' -o -path '*/auto/*' \) -print0 |
-              while IFS= read -r -d '' f; do sh -n "$f"; done
+            find "$ROOT" -type f \( -name '*.sh' -o -name '*.hook.chroot' -o -path '*/auto/*' \) -print |
+              while IFS= read -r f; do sh -n "$f"; done
             test -s "$ROOT/config/package-lists/osai.list.chroot"
             test -s "$ROOT/osai.yaml"
             echo 'Project validation passed.'
@@ -204,7 +210,7 @@ def compile_project(spec: OSSpec, destination: Path) -> Path:
 
     _write(
         project / ".gitignore",
-        """.build/\n.cache/\nbinary*\nchroot*\nconfig/bootstrap\nconfig/chroot\nconfig/common\nconfig/source\n*.iso\ndist/*.iso\n""",
+        ".build/\n.cache/\nbinary*\nchroot*\nconfig/bootstrap\nconfig/chroot\nconfig/common\nconfig/source\n*.iso\ndist/*.iso\n",
     )
 
     _write(
