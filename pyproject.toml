@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "osai"
+version = "0.1.0"
+description = "Local-first AI system for generating Linux operating systems"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "OSAI Project"}]
+license = {text = "MIT"}
+dependencies = [
+  "Pillow>=10.4",
+  "PyYAML>=6.0.2",
+  "pydantic>=2.8",
+  "jinja2>=3.1.4",
+]
+
+[project.optional-dependencies]
+web = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "python-multipart>=0.0.9"]
+ml = ["torch>=2.4", "numpy>=2.0"]
+dev = ["pytest>=8.3", "ruff>=0.6", "mypy>=1.11"]
+
+[project.scripts]
+osai = "osai.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["osai*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
