@@ -7,19 +7,15 @@ from typing import Any
 
 @dataclass(slots=True)
 class ModelConfig:
-    vocab_size: int = 32768
-    context_length: int = 4096
-    hidden_size: int = 768
-    layers: int = 12
-    heads: int = 12
+    vocab_size: int = 258
+    context_length: int = 512
+    hidden_size: int = 384
+    layers: int = 6
+    heads: int = 6
 
 
 class LocalCodeModel:
-    """Optional local decoder-only Transformer.
-
-    This runtime never contacts a hosted AI. Importing torch is delayed so the
-    deterministic OSAI planner works on machines that do not install ML extras.
-    """
+    """Optional local decoder-only Transformer loaded only from local weights."""
 
     def __init__(self, weights: Path | None = None, config: ModelConfig | None = None):
         self.weights = weights
@@ -42,9 +38,7 @@ class LocalCodeModel:
             def __init__(self) -> None:
                 super().__init__()
                 self.norm1 = nn.LayerNorm(cfg.hidden_size)
-                self.attn = nn.MultiheadAttention(
-                    cfg.hidden_size, cfg.heads, batch_first=True
-                )
+                self.attn = nn.MultiheadAttention(cfg.hidden_size, cfg.heads, batch_first=True)
                 self.norm2 = nn.LayerNorm(cfg.hidden_size)
                 self.mlp = nn.Sequential(
                     nn.Linear(cfg.hidden_size, cfg.hidden_size * 4),
@@ -55,9 +49,7 @@ class LocalCodeModel:
             def forward(self, x):
                 n = self.norm1(x)
                 seq = n.size(1)
-                mask = torch.triu(
-                    torch.full((seq, seq), float("-inf"), device=x.device), diagonal=1
-                )
+                mask = torch.triu(torch.full((seq, seq), float("-inf"), device=x.device), diagonal=1)
                 a, _ = self.attn(n, n, n, attn_mask=mask, need_weights=False)
                 x = x + a
                 return x + self.mlp(self.norm2(x))
@@ -73,6 +65,7 @@ class LocalCodeModel:
                 self.head.weight = self.token.weight
 
             def forward(self, ids):
+                ids = ids[:, -cfg.context_length :]
                 positions = torch.arange(ids.size(1), device=ids.device)
                 x = self.token(ids) + self.pos(positions)[None, :, :]
                 for block in self.blocks:
